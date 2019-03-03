@@ -242,7 +242,7 @@ def ui_thread(addr, frame_address):
   test_model = sub_sock(context, 8040, addr=addr, conflate=True)
   liveMpc = sub_sock(context, service_list['liveMpc'].port, addr=addr, conflate=True)
 
-  v_ego, angle_steers, angle_steers_des, angle_offset = 0., 0., 0., 0.
+  v_ego, angle_steers, angle_steers_des, model_bias = 0., 0., 0., 0.
   enabled = False
 
   gas = 0.
@@ -367,7 +367,7 @@ def ui_thread(addr, frame_address):
     if l100 is not None:
       v_ego = l100.live100.vEgo
       angle_steers = l100.live100.angleSteers
-      angle_offset = l100.live100.angleOffset
+      model_bias = l100.live100.angleModelBias
       curvature = l100.live100.curvature
       v_pid = l100.live100.vPid
       enabled = l100.live100.enabled
@@ -524,8 +524,8 @@ def ui_thread(addr, frame_address):
     screen.blit(v_ego_line, (write_x, write_y + 60))
 
     # angle offset
-    angle_offset_line = info_font.render("STEER OFFSET: " + str(round(angle_offset, 2)) + " deg", True, YELLOW)
-    screen.blit(angle_offset_line, (write_x, write_y + 90))
+    model_bias_line = info_font.render("MODEL BIAS: " + str(round(model_bias, 2)) + " deg", True, YELLOW)
+    screen.blit(model_bias_line, (write_x, write_y + 90))
 
     # long control state
     long_control_state_line = info_font.render("LONG CONTROL STATE: " + str(long_control_state), True, YELLOW)
