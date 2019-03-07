@@ -33,6 +33,7 @@ class Route(object):
     segment_files = defaultdict(list)
 
     for f in files:
+      print(self.route_name, 'Checking', f)
       fullpath = os.path.join(data_dir, f)
       explorer_match = re.match(EXPLORER_FILE_RE, f)
       op_match = re.match(OP_SEGMENT_DIR_RE, f)
@@ -47,6 +48,15 @@ class Route(object):
           for seg_f in os.listdir(fullpath):
             segment_files[segment_name].append((os.path.join(fullpath, seg_f), seg_f))
       elif f == self.route_name:
+        for seg_num in os.listdir(fullpath):
+          if not seg_num.isdigit():
+            continue
+
+          segment_name = '{}--{}'.format(self.route_name, seg_num)
+          for seg_f in os.listdir(os.path.join(fullpath, seg_num)):
+            segment_files[segment_name].append((os.path.join(fullpath, seg_num, seg_f), seg_f))
+      elif f.replace('_', '|') == self.route_name: # support comma2019 data
+        print('Checking sub folder', fullpath)
         for seg_num in os.listdir(fullpath):
           if not seg_num.isdigit():
             continue
