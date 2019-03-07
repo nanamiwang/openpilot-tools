@@ -503,19 +503,20 @@ def ui_thread(addr, frame_address):
       warp_matrix = np.asarray(calibration_message.warpMatrix2).reshape(3, 3)
       calibration = CalibrationTransformsForWarpMatrix(warp_matrix, intrinsic_matrix, extrinsic_matrix)
 
-    # draw red pt for lead car in the main img
-    if lead_status:
-      if calibration is not None:
-        dx, dy = draw_lead_on(img, d_rel, y_rel, img_offset, calibration, color=(192,0,0))
-      # draw red line for lead car
-      draw_lead_car(d_rel, top_down)
+    if False:
+      # draw red pt for lead car in the main img
+      if lead_status:
+        if calibration is not None:
+          dx, dy = draw_lead_on(img, d_rel, y_rel, img_offset, calibration, color=(192,0,0))
+        # draw red line for lead car
+        draw_lead_car(d_rel, top_down)
 
-    # draw red pt for lead car2 in the main img
-    if lead_status2:
-      if calibration is not None:
-        dx2, dy2 = draw_lead_on(img, d_rel2, y_rel2, img_offset, calibration, color=(192,0,0))
-      # draw red line for lead car
-      draw_lead_car(d_rel2, top_down)
+      # draw red pt for lead car2 in the main img
+      if lead_status2:
+        if calibration is not None:
+          dx2, dy2 = draw_lead_on(img, d_rel2, y_rel2, img_offset, calibration, color=(192,0,0))
+        # draw red line for lead car
+        draw_lead_car(d_rel2, top_down)
 
     # *** blits ***
     pygame.surfarray.blit_array(camera_surface, img.swapaxes(0,1))
@@ -548,8 +549,9 @@ def ui_thread(addr, frame_address):
     pygame.surfarray.blit_array(cameraw_surface, imgw.swapaxes(0, 1))
     screen.blit(cameraw_surface, (320, 480))
 
-    pygame.surfarray.blit_array(cameraw_test_surface, imgw_test_model.swapaxes(0, 1))
-    screen.blit(cameraw_test_surface, (0, 480))
+    if False:
+      pygame.surfarray.blit_array(cameraw_test_surface, imgw_test_model.swapaxes(0, 1))
+      screen.blit(cameraw_test_surface, (0, 480))
 
     pygame.surfarray.blit_array(*top_down)
     screen.blit(top_down[0], (640,0))
@@ -563,9 +565,11 @@ def ui_thread(addr, frame_address):
     screen.blit(brake_lights_line, (write_x, write_y+30))
 
     # speed
-    kmph = v_ego / 1000. * 60. * 60.
-    v_ego_line = info_font.render("SPEED: " + str(round(kmph, 1)) + " km/h", True, YELLOW)
+    v_ego_line = info_font.render("SPEED: " + str(round(v_ego, 1)) + " m/s", True, YELLOW)
     screen.blit(v_ego_line, (write_x, write_y + 60))
+    kmph = v_ego / 1000. * 60. * 60.
+    v_ego_line = info_font.render(", " + str(round(kmph, 1)) + " km/h", True, YELLOW)
+    screen.blit(v_ego_line, (write_x + 150, write_y + 60))
 
     # angle offset
     angle_offset_line = info_font.render("STEER OFFSET: " + str(round(angle_offset, 2)) + " deg", True, YELLOW)
