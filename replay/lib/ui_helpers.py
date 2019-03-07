@@ -19,9 +19,15 @@ def find_color(lidar_surface, color):
   _COLOR_CACHE[color] = ret
   return ret
 
-def warp_points(pt_s, warp_matrix):
+def warp_points(pt_s, warp_matrix, dbg=False):
   # pt_s are the source points, nxm array.
   pt_d = np.dot(warp_matrix[:, :-1], pt_s.T) + warp_matrix[:, -1, None]
+  if dbg and False:
+    #print('warp_matrix[:, :-1]', warp_matrix[:, :-1])
+    #print('warp_matrix[:, -1, None]', warp_matrix[:, -1, None])
+    #print('dot', np.dot(warp_matrix[:, :-1], pt_s.T))
+    print('pt_d', pt_d)
+    print('r', pt_d[:-1, :] / pt_d[-1, :])
 
   # Divide by last dimension for representation in image space.
   return (pt_d[:-1, :] / pt_d[-1, :]).T
@@ -33,15 +39,22 @@ def to_lid_pt(y, x):
   return -1, -1
 
 
-def draw_path(y, x, color, img, calibration, top_down, lid_color=None):
+def draw_path(y, x, color, img, calibration, top_down, lid_color=None, dbg=False):
   # TODO(mgraczyk): Remove big box.
-  uv_model_real = warp_points(np.column_stack((x, y)), calibration.car_to_model)
+  uv_model_real = warp_points(np.column_stack((x, y)), calibration.car_to_model, dbg=dbg)
   uv_model = np.round(uv_model_real).astype(int)
 
   uv_model_dots = uv_model[np.logical_and.reduce((np.all(  # pylint: disable=no-member
     uv_model > 0, axis=1), uv_model[:, 0] < img.shape[1] - 1, uv_model[:, 1] <
                                                   img.shape[0] - 1))]
 
+  if dbg:
+    #print('calibration.car_to_model', calibration.car_to_model)
+    #print('xy', np.column_stack((x, y)))
+    print('y', y)
+    #print('uv_model', uv_model[1], uv_model[-2])
+    #print('uv_model_real', uv_model_real[0])
+    print('uv_model_dots', uv_model_dots[0])
   for i, j  in ((-1, 0), (0, -1), (0, 0), (0, 1), (1, 0)):
     img[uv_model_dots[:, 1] + i, uv_model_dots[:, 0] + j] = color
 

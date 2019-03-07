@@ -12,7 +12,7 @@ import struct
 from collections import deque
 
 # sudo pip install git+git://github.com/mikeboers/PyAV.git
-import av
+#import av
 
 import selfdrive.messaging as messaging
 from selfdrive.services import service_list
@@ -40,8 +40,8 @@ def receiver_thread():
   s = messaging.sub_sock(context, 9002, addr=addr)
   frame_sock = messaging.pub_sock(context, service_list['frame'].port)
 
-  ctx = av.codec.codec.Codec('hevc', 'r').create()
-  ctx.decode(av.packet.Packet(start.decode("hex")))
+  #ctx = av.codec.codec.Codec('hevc', 'r').create()
+  #ctx.decode(av.packet.Packet(start.decode("hex")))
 
   import time
   while 1:
@@ -51,8 +51,8 @@ def receiver_thread():
     t1, t2 = time.time(), t1
     #print 'ms to get frame:', (t1-t2)*1000
 
-    pkt = av.packet.Packet(raw)
-    f = ctx.decode(pkt)
+    #pkt = av.packet.Packet(raw)
+    #f = ctx.decode(pkt)
     if not f:
       continue
     f = f[0]

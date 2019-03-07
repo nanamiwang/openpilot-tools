@@ -39,6 +39,7 @@ WHITE = (255, 255, 255)
 _PATH_X = np.arange(101.)
 _PATH_XD = np.arange(101.)
 _PATH_PINV = compute_path_pinv(50)
+#print('pinv', _PATH_PINV)
 #_BB_OFFSET = 290, 332
 _BB_OFFSET = 0,0
 _BB_SCALE = 1164/640.
@@ -48,6 +49,7 @@ _BB_TO_FULL_FRAME = np.asarray([
     [0., 0.,   1.]])
 _FULL_FRAME_TO_BB = np.linalg.inv(_BB_TO_FULL_FRAME)
 
+
 ModelUIData = namedtuple("ModelUIData", ["cpath", "lpath", "rpath", "lead", "lead_std", "freepath"])
 
 
@@ -56,6 +58,12 @@ class CalibrationTransformsForWarpMatrix(object):
     self._model_to_full_frame = model_to_full_frame
     self._K = K
     self._E = E
+    if False:
+      #print('model_to_full_frame', model_to_full_frame)
+      #print('K', K)
+      print('E', E)
+      #print('E013', E[:, [0, 1, 3]])
+      #print('car_to_model', self.car_to_model)
 
   @property
   def model_to_bb(self):
@@ -93,13 +101,33 @@ class ModelPoly(object):
       self.valid = False
       return
 
+    #print('pts', map(float, model_path.points))
+    ppp = [-1.7858558893203735, -1.7847399711608887, -1.7849699258804321, -1.7832645177841187, -1.7835838794708252,
+           -1.7823158502578735, -1.7822133302688599, -1.7805110216140747, -1.7800503969192505, -1.7781158685684204,
+           -1.77738618850708, -1.7757179737091064, -1.7730458974838257, -1.7720271348953247, -1.7692354917526245,
+           -1.7676972150802612, -1.765648365020752, -1.76313054561615, -1.7619824409484863, -1.760246992111206,
+           -1.7574920654296875, -1.7554030418395996, -1.75413179397583, -1.751186490058899, -1.749423861503601,
+           -1.7477020025253296, -1.745503306388855, -1.7440717220306396, -1.7430309057235718, -1.740481972694397,
+           -1.7380342483520508, -1.7351038455963135, -1.7331931591033936, -1.7298561334609985, -1.7260246276855469,
+           -1.7244280576705933, -1.7218358516693115, -1.7188658714294434, -1.7162991762161255, -1.7131919860839844,
+           -1.7106212377548218, -1.706735372543335, -1.7034555673599243, -1.7014111280441284, -1.6999675035476685,
+           -1.6968985795974731, -1.6948823928833008, -1.6915847063064575, -1.6880658864974976, -1.6852550506591797]
+
     self.poly = model_polyfit(model_path.points, _PATH_PINV)
+    #self.poly = model_polyfit(ppp, _PATH_PINV)
+    #print('poly', self.poly)
     self.prob = model_path.prob
     self.std = model_path.std
     self.y = np.polyval(self.poly, _PATH_XD)
+    #print('y', self.y)
     self.valid = True
 
 def extract_model_data(md):
+  if False:
+    with open('/home/nanami/data/truth_right_lane.txt', 'a') as dump_file:
+      dump_file.write(','.join(str(e) for e in md.model.rightLane.points))
+      dump_file.write('\n')
+
   return ModelUIData(
     cpath=ModelPoly(md.model.path),
     lpath=ModelPoly(md.model.leftLane),
@@ -120,7 +148,7 @@ def plot_model(m, VM, v_ego, curvature, imgw, calibration, top_down, top_down_co
     return
 
   if m.cpath.valid:
-    draw_path(m.cpath.y, _PATH_XD, YELLOW, imgw, calibration, top_down, YELLOW)
+    draw_path(m.cpath.y, _PATH_XD, YELLOW, imgw, calibration, top_down, YELLOW, dbg=False)
     draw_var(m.cpath.y, _PATH_XD, m.cpath.std, YELLOW, imgw, calibration, top_down)
 
     dpath_poly, _, _ = calc_desired_path(m.lpath.poly, m.rpath.poly, m.cpath.poly,
@@ -132,7 +160,7 @@ def plot_model(m, VM, v_ego, curvature, imgw, calibration, top_down, top_down_co
 
   if m.lpath.valid:
     color = (0, int(255 * m.lpath.prob), 0)
-    draw_path(m.lpath.y, _PATH_XD, color, imgw, calibration, top_down, YELLOW)
+    draw_path(m.lpath.y, _PATH_XD, color, imgw, calibration, top_down, YELLOW, dbg=False)
     draw_var(m.lpath.y, _PATH_XD, m.lpath.std, color, imgw, calibration, top_down)
 
   if m.rpath.valid:
@@ -209,12 +237,12 @@ def ui_thread(addr, frame_address):
   if HOR:
     size = (640+384+640, 960)
     write_x = 5
-    write_y = 680
+    #write_y = 680
   else:
     size = (640+384, 960+300)
     write_x = 645
-    write_y = 970
-
+    #write_y = 970
+  write_y = 0
   pygame.display.set_caption("openpilot debug UI")
   screen = pygame.display.set_mode(size, pygame.DOUBLEBUF)
 
@@ -337,18 +365,23 @@ def ui_thread(addr, frame_address):
         [ 0.0,  0.0, 1.0]
       ])
 
-
     if yuv_img and len(yuv_img) == FULL_FRAME_SIZE[0] * FULL_FRAME_SIZE[1] * 3 // 2:
       yuv_np = np.frombuffer(yuv_img, dtype=np.uint8).reshape(FULL_FRAME_SIZE[1] * 3 // 2, -1)
-
+      #print(yuv_np[0,0:100])
       cv2.cvtColor(yuv_np, cv2.COLOR_YUV2RGB_I420, dst=imgff)
+      #cv2.imwrite('/home/nanami/data/imgff.png', imgff)
       cv2.warpAffine(imgff, np.dot(yuv_transform, _BB_TO_FULL_FRAME)[:2],
         (img.shape[1], img.shape[0]), dst=img, flags=cv2.WARP_INVERSE_MAP)
-
+      #cv2.imwrite('/home/nanami/data/img.png', img)
+      #cv2.imwrite('/home/nanami/data/img.png', img)
+      if calibration is not None:
+        cv2.warpAffine(imgff, np.dot(yuv_transform, calibration.model_to_full_frame)[:2],
+                       (imgw.shape[1], imgw.shape[0]), dst=imgw, flags=cv2.WARP_INVERSE_MAP)
       intrinsic_matrix = eon_intrinsics
     else:
       img.fill(0)
       intrinsic_matrix = np.eye(3)
+
 
     if calibration is not None and yuv_img and vision_test:
       model_input_yuv = visiontest.transform_contiguous(yuv_img,
@@ -358,7 +391,9 @@ def ui_thread(addr, frame_address):
         cv2.COLOR_YUV2RGB_I420,
         dst=imgw)
     else:
-      imgw.fill(0)
+      pass
+      #imgw.fill(0)
+
     imgw_test_model = imgw.copy()
 
 
@@ -420,6 +455,7 @@ def ui_thread(addr, frame_address):
     if md:
       model_data = extract_model_data(md)
 
+    # VM is not used yet
     if model_data:
       plot_model(model_data, VM, v_ego, curvature, imgw, calibration,
                  top_down)
@@ -463,7 +499,7 @@ def ui_thread(addr, frame_address):
     if lcal is not None:
       calibration_message = lcal.liveCalibration
       extrinsic_matrix = np.asarray(calibration_message.extrinsicMatrix).reshape(3, 4)
-
+      # full frame to driving model frame
       warp_matrix = np.asarray(calibration_message.warpMatrix2).reshape(3, 3)
       calibration = CalibrationTransformsForWarpMatrix(warp_matrix, intrinsic_matrix, extrinsic_matrix)
 
@@ -483,6 +519,7 @@ def ui_thread(addr, frame_address):
 
     # *** blits ***
     pygame.surfarray.blit_array(camera_surface, img.swapaxes(0,1))
+
     screen.blit(camera_surface, (0, 0))
 
     # display alerts
@@ -494,7 +531,13 @@ def ui_thread(addr, frame_address):
     if calibration is not None and img is not None:
       cpw = warp_points(CalP, calibration.model_to_bb)
       vanishing_pointw = warp_points(vanishing_point, calibration.model_to_bb)
+      posnet_box = np.array([[50, 237 ],
+       [1114, 237 ],
+       [1114, 637],
+       [50, 637]])
+      posnet_box_bb = warp_points(posnet_box, _FULL_FRAME_TO_BB)
       pygame.draw.polygon(screen, BLUE, tuple(map(tuple, cpw)), 1)
+      pygame.draw.polygon(screen, RED, tuple(map(tuple, posnet_box_bb)), 1)
       pygame.draw.circle(screen, BLUE, map(int, map(round, vanishing_pointw[0])), 2)
 
     if HOR:
@@ -520,7 +563,8 @@ def ui_thread(addr, frame_address):
     screen.blit(brake_lights_line, (write_x, write_y+30))
 
     # speed
-    v_ego_line = info_font.render("SPEED: " + str(round(v_ego, 1)) + " m/s", True, YELLOW)
+    kmph = v_ego / 1000. * 60. * 60.
+    v_ego_line = info_font.render("SPEED: " + str(round(kmph, 1)) + " km/h", True, YELLOW)
     screen.blit(v_ego_line, (write_x, write_y + 60))
 
     # angle offset

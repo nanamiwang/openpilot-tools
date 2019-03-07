@@ -425,7 +425,7 @@ def main(argv):
       signal.signal(signal.SIGCHLD, signal.SIGIGN)
     signal.signal(signal.SIGCHLD, exit_if_children_dead)
 
-    if args.interactive:
+    if args.interactive and False:
       keyboard_controller_thread(command_sock, route_start_time)
     else:
       # Wait forever for children.
