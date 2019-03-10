@@ -27,6 +27,8 @@ try:
 except ImportError:
   vision_test = False
 
+from osm_helpers import query_nodes, init_overpass_api, find_closest_node
+
 HOR = os.getenv("HORIZONTAL") is not None
 
 RED = (255, 0, 0)
@@ -269,6 +271,9 @@ def ui_thread(addr, frame_address):
   model = sub_sock(context, service_list['model'].port, addr=addr, conflate=True)
   test_model = sub_sock(context, 8040, addr=addr, conflate=True)
   liveMpc = sub_sock(context, service_list['liveMpc'].port, addr=addr, conflate=True)
+  gps_sock = sub_sock(context, service_list['gpsLocation'].port, conflate=True)
+  gps_external_sock = sub_sock(context, service_list['gpsLocationExternal'].port, conflate=True)
+
 
   v_ego, angle_steers, angle_steers_des, angle_offset = 0., 0., 0., 0.
   enabled = False
@@ -344,6 +349,10 @@ def ui_thread(addr, frame_address):
 
   draw_plots = init_plots(plot_arr, name_to_arr_idx, plot_xlims, plot_ylims, plot_names, plot_colors, plot_styles, bigplots=True)
 
+  api = init_overpass_api()
+  traffic_signs_results = None
+  traffic_signals_results = None
+  crossings_results = None
   while 1:
     list(pygame.event.get())
 
@@ -351,8 +360,22 @@ def ui_thread(addr, frame_address):
     lid_overlay = lid_overlay_blank.copy()
     top_down = top_down_surface, lid_overlay
 
+    #gps = recv_one_or_none(gps_sock)
+    gps_ext = recv_one(gps_external_sock)
+    gps = gps_ext.gpsLocationExternal
+    print('gps_ext time', gps_ext.logMonoTime / 1e9, gps.longitude, gps.latitude)
+    if not traffic_signs_results:
+      traffic_signs_results = query_nodes(api, gps.longitude, gps.latitude, tag='traffic_sign', radius=100 * 1000)
+    if not traffic_signals_results:
+      traffic_signals_results = query_nodes(api, gps.longitude, gps.latitude, tag='highway=traffic_signals', radius=100 * 1000)
+    if not crossings_results and False:
+      crossings_results = query_nodes(api, gps.longitude, gps.latitude, tag='highway=crossings', radius=100 * 1000)
+    find_closest_node(traffic_signs_results, gps.latitude, gps.longitude, gps.altitude)
+    find_closest_node(traffic_signals_results, gps.latitude, gps.longitude, gps.altitude)
+
     # ***** frame *****
     fpkt = recv_one(frame)
+    print('frame time', fpkt.logMonoTime / 1e9, 'sec')
     yuv_img = fpkt.frame.image
 
     if fpkt.frame.transform:
@@ -398,7 +421,8 @@ def ui_thread(addr, frame_address):
 
 
     # ***** live100 *****
-    l100 = recv_one_or_none(live100)
+    l100 = recv_one(live100)
+    print('l100 time', l100.logMonoTime / 1e9, 'sec')
     if l100 is not None:
       v_ego = l100.live100.vEgo
       angle_steers = l100.live100.angleSteers
@@ -411,6 +435,7 @@ def ui_thread(addr, frame_address):
       long_control_state = l100.live100.longControlState
 
     cs = recv_one_or_none(carState)
+
     if cs is not None:
       gas = cs.carState.gas
       brake_lights = cs.carState.brakeLights
