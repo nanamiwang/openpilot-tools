@@ -14,6 +14,8 @@ from collections import deque
 from multiprocessing import Process, TimeoutError
 from datetime import datetime
 
+sys.path.append('/home/nanami/openpilot_0.6/')
+
 # strat 1: script to copy files
 # strat 2: build pip packages around these
 # could be its own pip package, which we'd need to build and release
@@ -367,7 +369,7 @@ def get_arg_parser():
     help="Publish messages as quickly as possible instead of realtime.")
 
   parser.add_argument(
-    "--no-interactive", dest="interactive", action="store_false", default=True,
+    "--no-interactive", dest="interactive", action="store_false", default=False,
     help="Disable interactivity.")
 
   parser.add_argument(

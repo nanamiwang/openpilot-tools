@@ -1,17 +1,21 @@
 import os
 import re
+from glob import glob
 from collections import defaultdict
 
 SEGMENT_NAME_RE = r'[a-z0-9]{16}[|_][0-9]{4}-[0-9]{2}-[0-9]{2}--[0-9]{2}-[0-9]{2}-[0-9]{2}--[0-9]+'
 EXPLORER_FILE_RE = r'^({})--([a-z]+\.[a-z0-9]+)$'.format(SEGMENT_NAME_RE)
 OP_SEGMENT_DIR_RE = r'^({})$'.format(SEGMENT_NAME_RE)
+RELATIVE_SEGMENT_NAME_RE = r'[0-9]{4}-[0-9]{2}-[0-9]{2}--[0-9]{2}-[0-9]{2}-[0-9]{2}--[0-9]+'
 
 LOG_FILENAMES = ['rlog.bz2', 'raw_log.bz2', 'log2.gz', 'ilog.7z']
 CAMERA_FILENAMES = ['fcamera.hevc', 'video.hevc', 'acamera', 'icamera']
 
 class Route(object):
   def __init__(self, route_name, data_dir):
-    self.route_name = route_name.replace('_', '|')
+    self.route_name = route_name
+    if not os.path.isdir(os.path.dirname(self.route_name)):
+      self.route_name = self.route_name.replace('_', '|')
     self._segments = self._get_segments(data_dir)
 
   @property
@@ -29,6 +33,11 @@ class Route(object):
     return [camera_path_by_seg_num.get(i, None) for i in xrange(max_seg_number+1)]
 
   def _get_segments(self, data_dir):
+    if not data_dir:
+      #self.route_name is /home/nanami/data/my_logs/55b38f438c826c9a/2019-08-13--07-12-52
+      data_dir = os.path.dirname(self.route_name)
+      self.route_name = os.path.basename(self.route_name)
+
     files = os.listdir(data_dir)
     segment_files = defaultdict(list)
 
@@ -36,6 +45,7 @@ class Route(object):
       fullpath = os.path.join(data_dir, f)
       explorer_match = re.match(EXPLORER_FILE_RE, f)
       op_match = re.match(OP_SEGMENT_DIR_RE, f)
+      relative_segment_name_match = re.match(RELATIVE_SEGMENT_NAME_RE, f)
 
       if explorer_match:
         segment_name, fn = explorer_match.groups()
@@ -54,6 +64,13 @@ class Route(object):
           segment_name = '{}--{}'.format(self.route_name, seg_num)
           for seg_f in os.listdir(os.path.join(fullpath, seg_num)):
             segment_files[segment_name].append((os.path.join(fullpath, seg_num, seg_f), seg_f))
+      elif relative_segment_name_match and os.path.isdir(fullpath):
+        if f.startswith(self.route_name):
+          for ext in ('*.hevc', '*.bz2'):
+            fpaths = glob(os.path.join(fullpath, '*', ext))
+            for fpath in fpaths:
+              if os.path.isfile(fpath):
+                segment_files[f].append((fpath, os.path.basename(fpath)))
 
     segments = []
     for segment, files in segment_files.iteritems():
