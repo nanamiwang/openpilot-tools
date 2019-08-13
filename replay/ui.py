@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 import sys
 from collections import namedtuple
-from selfdrive.messaging import sub_sock, recv_one_or_none, recv_one
+from selfdrive.messaging import sub_sock, recv_one_or_none, recv_one, drain_sock_raw
 from common.transformations.camera import eon_intrinsics, FULL_FRAME_SIZE
 from common.transformations.model import MODEL_CX, MODEL_CY, MODEL_INPUT_SIZE
 from selfdrive.config import UIParams as UP
@@ -22,6 +22,10 @@ from tools.replay.lib.ui_helpers import to_lid_pt, draw_path, draw_steer_path, d
                                                   draw_lead_car, draw_lead_on, init_plots, warp_points, find_color
 from selfdrive.car.toyota.interface import CarInterface as ToyotaInterface
 from common.transformations.model import get_camera_frame_from_model_frame
+
+from common.realtime import sec_since_boot
+from selfdrive.car import dbc_dict
+from selfdrive.can.parser import CANParser
 
 HOR = os.getenv("HORIZONTAL") is not None
 
@@ -237,6 +241,26 @@ def ui_thread(addr, frame_address):
   liveMpc = sub_sock(service_list['liveMpc'].port, addr=addr, conflate=True)
   liveParameters = sub_sock(service_list['liveParameters'].port, addr=addr, conflate=True)
   pathPlan = sub_sock(service_list['pathPlan'].port, addr=addr, conflate=True)
+  logcan = sub_sock(service_list['can'].port, addr=addr, conflate=True)
+  signals = [
+    ('COUNTER', 'STEERING_LTA', 0),
+    ('SETME_X3', 'STEERING_LTA', 0),
+    ('PERCENTAGE', 'STEERING_LTA', 0),
+    ('SETME_X64', 'STEERING_LTA', 0),
+    ('ANGLE', 'STEERING_LTA', 0),
+    ('STEER_ANGLE_CMD', 'STEERING_LTA', 0),
+    ('STEER_REQUEST', 'STEERING_LTA', 0),
+    ('BIT', 'STEERING_LTA', 0),
+
+    ('LKA_STATE', 'STEERING_LKA', 0),
+    ('STEER_REQUEST', 'STEERING_LKA', 0),
+    ('COUNTER', 'STEERING_LKA', 0),
+    ('SET_ME_1', 'STEERING_LKA', 0),
+    ('STEER_TORQUE_CMD', 'STEERING_LKA', 0),
+    ('BIT', 'STEERING_LKA', 0),
+  ]
+  d = dbc_dict('toyota_nodsu_pt_generated', 'toyota_tss2_adas')
+  can_parser = CANParser(d['pt'], signals)
 
   v_ego, angle_steers, angle_steers_des, model_bias = 0., 0., 0., 0.
   params_ao, params_ao_average, params_stiffness, params_sr = None, None, None, None
@@ -419,6 +443,17 @@ def ui_thread(addr, frame_address):
     plot_arr[-1, name_to_arr_idx['a_ego']] = a_ego
     plot_arr[-1, name_to_arr_idx['a_target']] = a_target
     plot_arr[-1, name_to_arr_idx['accel_override']] = accel_override
+
+    # 359 STEERING_IPAS_COMMA
+    # 401 STEERING_LTA
+    # 740 STEERING_LKA
+    can_strs = drain_sock_raw(logcan, wait_for_one=False)
+    can_parser.update_strings(int(sec_since_boot() * 1e9), can_strs)
+    #print(c.address, ':'.join(['{:02X}'.format(x) for x in c.dat]))
+    if can_parser.vl["STEERING_LTA"]['STEER_REQUEST'] != 0:
+      print('LTA')
+    if can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'] != 0:
+      print('LKA', can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'])
 
     # ***** model ****
 
