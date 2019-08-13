@@ -67,7 +67,13 @@ class Route(object):
       elif relative_segment_name_match and os.path.isdir(fullpath):
         if f.startswith(self.route_name):
           for ext in ('*.hevc', '*.bz2'):
+            # 0.6.2 logs
             fpaths = glob(os.path.join(fullpath, '*', ext))
+            for fpath in fpaths:
+              if os.path.isfile(fpath):
+                segment_files[f].append((fpath, os.path.basename(fpath)))
+            # 0.5 logs
+            fpaths = glob(os.path.join(fullpath, ext))
             for fpath in fpaths:
               if os.path.isfile(fpath):
                 segment_files[f].append((fpath, os.path.basename(fpath)))
