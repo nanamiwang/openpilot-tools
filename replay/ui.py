@@ -26,6 +26,7 @@ from common.transformations.model import get_camera_frame_from_model_frame
 from common.realtime import sec_since_boot
 from selfdrive.car import dbc_dict
 from selfdrive.can.parser import CANParser
+from cereal import log
 
 HOR = os.getenv("HORIZONTAL") is not None
 
@@ -243,6 +244,7 @@ def ui_thread(addr, frame_address):
   pathPlan = sub_sock(service_list['pathPlan'].port, addr=addr, conflate=True)
   logcan = sub_sock(service_list['can'].port, addr=addr, conflate=True)
   log_sendcan = sub_sock(service_list['sendcan'].port, addr=addr, conflate=True)
+  log_mesage = sub_sock(service_list['logMessage'].port, addr=addr, conflate=True)
 
   signals = [
     ('COUNTER', 'STEERING_LTA', 0),
@@ -260,6 +262,12 @@ def ui_thread(addr, frame_address):
     ('SET_ME_1', 'STEERING_LKA', 0),
     ('STEER_TORQUE_CMD', 'STEERING_LKA', 0),
     ('BIT', 'STEERING_LKA', 0),
+
+    ('TC_DISABLED', 'ESP_CONTROL', 0),
+    ('MAIN_ON', 'PCM_CRUISE_2', 0),
+    ('ACCEL_CMD', 'ACC_CONTROL', 0),
+    ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
+   ('CRUISE_ACTIVE', 'PCM_CRUISE', 0),
   ]
   d = dbc_dict('toyota_nodsu_pt_generated', 'toyota_tss2_adas')
   can_parser = CANParser(d['pt'], signals)
@@ -447,24 +455,58 @@ def ui_thread(addr, frame_address):
     plot_arr[-1, name_to_arr_idx['a_target']] = a_target
     plot_arr[-1, name_to_arr_idx['accel_override']] = accel_override
 
-    # 359 STEERING_IPAS_COMMA
-    # 401 STEERING_LTA
-    # 740 STEERING_LKA
+    # /home/nanami/data/my_logs/55b38f438c826c9a/2019-08-13--07-04-07
+    # b0c9d2329ad1606b|2018-08-03--10-35-16 /home/nanami/data/Chunk_1/
     can_strs = drain_sock_raw(logcan, wait_for_one=False)
     can_parser.update_strings(int(sec_since_boot() * 1e9), can_strs)
     #print(c.address, ':'.join(['{:02X}'.format(x) for x in c.dat]))
-    if can_parser.vl["STEERING_LTA"]['STEER_REQUEST'] != 0:
-      print('LTA')
-    if can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'] != 0:
-      print('LKA', can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'])
+    if can_parser.vl["ESP_CONTROL"]['TC_DISABLED'] != 0:
+      print('TC_DISABLED', can_parser.vl["ESP_CONTROL"]['TC_DISABLED'])
+
+    # 359 STEERING_IPAS_COMMA
+    # 401 STEERING_LTA
+    # 0x2E4, 740 STEERING_LKA
+    # 0x343, ACC_CONTROL
+    # 466 CRUISE_ACTIVE
+    # 467 PCM_CRUISE_2
+    # 608 STEER_TORQUE_SENSOR
+    for s in can_strs:
+      m = log.Event.from_bytes(s)
+      for c in m.can:
+        if c.address == 740:
+          #print('LKA state', can_parser.vl["STEERING_LKA"]['LKA_STATE'])
+          if can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'] != 0:
+            print('LKA torque cmd', can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'])
+          #print('recved CAM STEERING_LKA')
+        elif c.address == 401:
+          if can_parser.vl["STEERING_LTA"]['STEER_REQUEST'] != 0:
+            print('LTA STEER_REQUEST')
+        elif c.address == 0x343 and c.src == 0:
+          print('ACC_CONTROL, stock dsu', c.src)
+          if can_parser.vl["ACC_CONTROL"]['ACCEL_CMD'] != 0:
+            print('ACC_CONTROL ACCEL_CMD', can_parser.vl["ACC_CONTROL"]['ACCEL_CMD'])
+        elif c.address == 466:
+          if False and can_parser.vl["PCM_CRUISE"]['CRUISE_ACTIVE'] != 0:
+            print('CRUISE_ACTIVE on', can_parser.vl["PCM_CRUISE"]['CRUISE_ACTIVE'])
+        elif c.address == 467:
+          if False and can_parser.vl["PCM_CRUISE_2"]['MAIN_ON'] != 0:
+            print('MAIN_ON', can_parser.vl["PCM_CRUISE_2"]['MAIN_ON'])
+        elif c.address == 608:
+          if False and can_parser.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE'] != 0:
+            print('STEER_ANGLE', can_parser.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE'])
 
     can_strs = drain_sock_raw(log_sendcan, wait_for_one=False)
     send_can_parser.update_strings(int(sec_since_boot() * 1e9), can_strs)
-    #print(c.address, ':'.join(['{:02X}'.format(x) for x in c.dat]))
-    if send_can_parser.vl["STEERING_LTA"]['STEER_REQUEST'] != 0:
-      print('Send LTA')
-    if send_can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'] != 0:
-      print('Send LKA', can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'])
+    if can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'] != 0:
+      print('Send LKA torque cmd', can_parser.vl["STEERING_LKA"]['STEER_TORQUE_CMD'])
+    if can_parser.vl["ACC_CONTROL"]['ACCEL_CMD'] != 0:
+      print('Send ACC_CONTROL ACCEL_CMD', can_parser.vl["ACC_CONTROL"]['ACCEL_CMD'])
+
+    if False:
+      lm = recv_one_or_none(log_mesage)
+      if lm is not None:
+        print(lm.logMessage)
+
 
     # ***** model ****
 
