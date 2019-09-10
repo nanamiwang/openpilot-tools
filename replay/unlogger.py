@@ -86,7 +86,10 @@ class UnloggerWorker(object):
     while len(self._readahead) < 1000:
       route_time = lr.tell()
       msg = next(lr)
-      typ = msg.which()
+      try:
+        typ = msg.which()
+      except:
+        continue
       if typ not in pub_types:
         continue
 
