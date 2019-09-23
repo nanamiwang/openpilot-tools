@@ -83,6 +83,9 @@ class UnloggerWorker(object):
   def _read_logs(self, cookie, pub_types):
     fullHEVC = capnp_log.EncodeIndex.Type.fullHEVC
     lr = self._lr
+    can_msg_cnt = 0
+    plan_msg_cnt = 0
+    pathplan_msg_cnt = 0
     while len(self._readahead) < 1000:
       route_time = lr.tell()
       msg = next(lr)
@@ -92,7 +95,15 @@ class UnloggerWorker(object):
         continue
       if typ not in pub_types:
         continue
-
+      if msg.which() == 'can':
+        can_msg_cnt += 1
+      if msg.which() == 'plan':
+        plan_msg_cnt += 1
+      if msg.which() == 'pathPlan':
+        pathplan_msg_cnt += 1
+      if can_msg_cnt >= 100 and plan_msg_cnt >= 10 and pathplan_msg_cnt >= 10:
+        print(can_msg_cnt, plan_msg_cnt, pathplan_msg_cnt)
+        sys.exit(0)
       # **** special case certain message types ****
       if typ == "encodeIdx" and msg.encodeIdx.type == fullHEVC:
         # this assumes the encodeIdx always comes before the frame
