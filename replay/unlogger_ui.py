@@ -450,6 +450,14 @@ def main(argv):
         a_ego = smsg.carState.aEgo
         brake = smsg.carState.brake
         v_cruise = smsg.carState.cruiseState.speed
+      elif typ == 'gpsLocation':
+        for k, c in ws_server.connections.items():
+          json_str = json.dumps({
+            'src': 0,
+            'lat': smsg.gpsLocation.latitude,
+            'lng': smsg.gpsLocation.longitude,
+            'acc': smsg.gpsLocation.accuracy});
+          c.sendMessage(json_str)
       elif typ == 'gpsLocationExternal':
         #print('Lat', smsg.gpsLocationExternal.latitude, 'Lng', smsg.gpsLocationExternal.longitude, 'Acc', smsg.gpsLocationExternal.accuracy)
         if gps:
@@ -462,6 +470,7 @@ def main(argv):
           print('Initial gps', gps.latitude, gps.longitude)
         for k, c in ws_server.connections.items():
           json_str = json.dumps({
+            'src': 1,
             'lat': smsg.gpsLocationExternal.latitude,
             'lng': smsg.gpsLocationExternal.longitude,
             'acc': smsg.gpsLocationExternal.accuracy});
@@ -693,10 +702,16 @@ def main(argv):
         if gps and prev_gps_a:
           meters = lat_lon_distance(gps.latitude, gps.longitude, gps.altitude, init_gps.latitude, init_gps.longitude, init_gps.altitude)
           meters_osm = lat_lon_distance(gps.latitude, gps.longitude, gps.altitude, args.lat, args.lon, gps.altitude)
-        v_ego_line = draw_transparent_text(
-          info_font, "DISTANCE: {}km, {}km, SPEED: {}kmph, ".format(round(meters/1000., 1), round(meters_osm/1000., 1), round(kmph, 1)), YELLOW)
-        screen.blit(v_ego_line, (write_x, write_y))
-        write_y += 30
+          v_ego_line = draw_transparent_text(
+            info_font, "DIST: {}km, {}km, SPEED: {}kmph, ".format(round(meters/1000., 1), round(meters_osm/1000., 1), round(kmph, 1)), YELLOW)
+          screen.blit(v_ego_line, (write_x, write_y))
+          write_y += 30
+
+        if gps:
+          v_ego_line = draw_transparent_text(
+            info_font, "LAT: {}, LNG: {}, ACC: {}".format(gps.latitude, gps.longitude, gps.accuracy), YELLOW)
+          screen.blit(v_ego_line, (write_x, write_y))
+          write_y += 30
 
         if lead_status:
           text_line = draw_transparent_text(info_font, "Lead dist: {}, y: {}".format(int(d_rel), int(y_rel)), YELLOW)

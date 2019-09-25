@@ -24,9 +24,8 @@ function mapInit(){
     zoom: 17,
     pitch:80,
     rotation:-15,
-    viewMode:'3D',//开启3D视图,默认为关闭
-    buildingAnimation:true,//楼块出现是否带动画
-
+    //viewMode:'3D',//开启3D视图,默认为关闭
+    //buildingAnimation:true,//楼块出现是否带动画
     expandZoomRange:true,
     zooms:[3,20],
     center:[116.333926,39.997245]
@@ -41,23 +40,48 @@ function mapInit(){
     }
   }))
   map.setZoom(18); // 11-18
-  var marker = new AMap.Marker({
-    position: [116.333926,39.997245]
+
+  var gps_marker = new AMap.Marker({
+      position: [116.405467, 39.907761]
   });
-  map.add(marker);
+  map.add(gps_marker);
+
+  var gps_ublox_marker = new AMap.Marker({
+      position: new AMap.LngLat(116.39,39.9),
+      offset: new AMap.Pixel(-10, -10),
+      icon: '//vdata.amap.com/icons/b18/1/2.png',
+  });
+  map.add(gps_ublox_marker);
 
   var gpsSock = new WebSocket("ws://127.0.0.1:40471");
   gpsSock.onopen = function (event) {
   };
   gpsSock.onmessage = function(event) {
     var msg = JSON.parse(event.data);
-    //map.setCenter([msg.lng, msg.lat]);
-    map.clearMap();
-    marker = new AMap.Marker({
-      position: [msg.lng, msg.lat],
-      title: '' + msg.acc,
-    });
-    map.add(marker);
+    if(msg.src == 0) {
+      var gps = [msg.lng, msg.lat];
+      AMap.convertFrom(gps, 'gps', function (status, result) {
+        if (result.info === 'ok') {
+          if(AMap.GeometryUtil.distance(gps_ublox_marker.getPosition(), result.locations[0]) > 1) {
+            map.remove(gps_marker);
+            gps_marker.setPosition(result.locations[0]);
+            map.add(gps_marker);
+          }
+        }
+      });
+    } else if(msg.src == 1) {
+      var gps = [msg.lng, msg.lat];
+      AMap.convertFrom(gps, 'gps', function (status, result) {
+        if (result.info === 'ok') {
+          if(AMap.GeometryUtil.distance(gps_ublox_marker.getPosition(), result.locations[0]) > 1) {
+            map.remove(gps_ublox_marker);
+            map.setCenter(result.locations[0]);
+            gps_ublox_marker.setPosition(result.locations[0]);
+            map.add(gps_ublox_marker);
+          }
+        }
+      });
+    }
   };
 }
 mapInit();
