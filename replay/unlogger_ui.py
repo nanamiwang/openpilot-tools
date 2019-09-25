@@ -468,13 +468,14 @@ def main(argv):
         if not prev_gps_a:
           init_gps = gps
           print('Initial gps', gps.latitude, gps.longitude)
-        for k, c in ws_server.connections.items():
-          json_str = json.dumps({
-            'src': 1,
-            'lat': smsg.gpsLocationExternal.latitude,
-            'lng': smsg.gpsLocationExternal.longitude,
-            'acc': smsg.gpsLocationExternal.accuracy});
-          c.sendMessage(json_str)
+        if smsg.gpsLocationExternal.accuracy < 2:
+          for k, c in ws_server.connections.items():
+            json_str = json.dumps({
+              'src': 1,
+              'lat': smsg.gpsLocationExternal.latitude,
+              'lng': smsg.gpsLocationExternal.longitude,
+              'acc': smsg.gpsLocationExternal.accuracy});
+            c.sendMessage(json_str)
       elif typ == 'controlsState':
         v_ego = smsg.controlsState.vEgo
         angle_steers = smsg.controlsState.angleSteers

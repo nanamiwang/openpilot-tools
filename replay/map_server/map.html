@@ -10,10 +10,12 @@ body,html{ margin:0;padding:0;font:12px/16px Verdana,Helvetica,Arial,sans-serif;
   height: 100%
 }
 </style>
-<script language="javascript" src="//webapi.amap.com/maps?v=1.4.15&key=b215644a51c5539bae0bc2580d671dc5&plugin=AMap.ControlBar"></script>
+<script language="javascript" src="//webapi.amap.com/maps?v=1.4.15&key=b215644a51c5539bae0bc2580d671dc5&plugin=AMap.ControlBar,AMap.Driving"></script>
+<script type="text/javascript" src="https://cache.amap.com/lbs/static/DrivingRender1230.js"></script>
 </head>
 <body >
 <div id="container" style="width:100%; height:100%;resize:both;"></div>
+<div id="panel"></div>
 <script language="javascript">
 var map;
 function mapInit(){
@@ -41,15 +43,40 @@ function mapInit(){
   }))
   map.setZoom(18); // 11-18
 
-  var gps_marker = new AMap.Marker({
-      position: [116.405467, 39.907761]
+  var path = [
+    new AMap.LngLat(116.28782749999999, 40.211033),
+    new AMap.LngLat(116.2342209, 40.2139393),
+  ];
+  AMap.convertFrom(path, 'gps', function (status, result) {
+    if (result.info === 'ok') {
+      var drivingOption = {
+        policy: AMap.DrivingPolicy.LEAST_TIME,
+      };
+      var driving = new AMap.Driving(drivingOption); //构造驾车导航类
+      //根据起终点坐标规划驾车路线
+      driving.search(result.locations[0], result.locations[1], function(status, result) {
+        if(status === 'complete' && result.info === 'OK') {
+          (new Lib.AMap.DrivingRender()).autoRender({
+            data: result,
+            map: map,
+            panel: "panel"
+          });
+        } else {
+          console.log('获取驾车数据失败：' + result);
+        }
+      });
+    }
   });
+
+  var gps_marker = new AMap.Marker({
+    position: [116.405467, 39.907761],
+   offset: new AMap.Pixel(-10, -10),
+    icon: '//vdata.amap.com/icons/b18/1/2.png',
+ });
   map.add(gps_marker);
 
   var gps_ublox_marker = new AMap.Marker({
       position: new AMap.LngLat(116.39,39.9),
-      offset: new AMap.Pixel(-10, -10),
-      icon: '//vdata.amap.com/icons/b18/1/2.png',
   });
   map.add(gps_ublox_marker);
 
