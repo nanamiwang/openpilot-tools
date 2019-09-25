@@ -9,6 +9,9 @@ import math
 import time
 import re
 import zmq
+import json
+from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
+
 from common.basedir import BASEDIR
 os.environ['BASEDIR'] = BASEDIR
 from cereal import log as capnp_log
@@ -245,6 +248,15 @@ def get_arg_parser():
   return parser
 
 
+class SimpleEcho(WebSocket):
+
+  def handleMessage(self):
+    # echo message back to client
+    self.sendMessage(self.data)
+
+  def handleClose(self):
+    print(self.address, 'closed')
+
 def main(argv):
   args = get_arg_parser().parse_args(sys.argv[1:])
   if not args.data_dir:
@@ -303,6 +315,8 @@ def main(argv):
   recv_sock = context.socket(zmq.SUB)
   recv_sock.connect("tcp://%s:%d" % ('127.0.0.1', 40471))
   recv_sock.setsockopt(zmq.SUBSCRIBE, b"")
+
+  ws_server = SimpleWebSocketServer('', 40471, SimpleEcho, selectInterval=0.)
 
   quiting = False
   for route_name in route_names:
@@ -391,6 +405,7 @@ def main(argv):
     show_leads = False
 
     while not goto_next_route and not quiting:
+      ws_server.serveonce()
       for event in pygame.event.get():
         if event.type == pygame.KEYDOWN:
           if event.key == pygame.K_ESCAPE:
@@ -436,6 +451,7 @@ def main(argv):
         brake = smsg.carState.brake
         v_cruise = smsg.carState.cruiseState.speed
       elif typ == 'gpsLocationExternal':
+        #print('Lat', smsg.gpsLocationExternal.latitude, 'Lng', smsg.gpsLocationExternal.longitude, 'Acc', smsg.gpsLocationExternal.accuracy)
         if gps:
           prev_gps_a.append(gps)
           if len(prev_gps_a) > 30:
@@ -444,6 +460,12 @@ def main(argv):
         if not prev_gps_a:
           init_gps = gps
           print('Initial gps', gps.latitude, gps.longitude)
+        for k, c in ws_server.connections.items():
+          json_str = json.dumps({
+            'lat': smsg.gpsLocationExternal.latitude,
+            'lng': smsg.gpsLocationExternal.longitude,
+            'acc': smsg.gpsLocationExternal.accuracy});
+          c.sendMessage(json_str)
       elif typ == 'controlsState':
         v_ego = smsg.controlsState.vEgo
         angle_steers = smsg.controlsState.angleSteers
@@ -461,7 +483,6 @@ def main(argv):
         steer_torque = smsg.carControl.actuators.steer * 5.
         angle_steers_des = smsg.carControl.actuators.steerAngle
         accel_override = smsg.carControl.cruiseControl.accelOverride
-
       elif typ == 'plan':
         a_target = smsg.plan.aTarget
         plan_source = smsg.plan.longitudinalPlanSource
