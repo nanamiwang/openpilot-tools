@@ -79,7 +79,7 @@ class Route(object):
                 segment_files[f].append((fpath, os.path.basename(fpath)))
 
     segments = []
-    for segment, files in segment_files.iteritems():
+    for segment, files in segment_files.items():
       try:
         log_path = next(path for path, filename in files if filename in LOG_FILENAMES)
       except StopIteration:

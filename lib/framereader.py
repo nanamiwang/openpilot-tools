@@ -7,10 +7,10 @@ import tempfile
 import threading
 import xml.etree.ElementTree as ET
 import numpy as np
-import Queue as queue
+import queue as queue
 import subprocess32 as subprocess
-import cPickle as pickle
-from cStringIO import StringIO
+import _pickle as pickle
+import six
 from aenum import Enum
 from lru import LRU
 from functools import wraps
@@ -460,7 +460,7 @@ def _ffmpeg_fcamera_input_for_frame_info(frame_info):
   get_time2 = et-st2
 
   if get_time > 10.0:
-    print "TOOK OVER 10 seconds to fetch", frame_info, get_time, get_time2
+    print("TOOK OVER 10 seconds to fetch", frame_info, get_time, get_time2)
 
 
   return prefix, input_data, skip, count
@@ -1095,7 +1095,7 @@ class MKVFrameReader(BaseFrameReader):
         f.seek(pos)
         frame_dats.append(f.read(length))
 
-    of = StringIO()
+    of = six.StringIO()
     mkvindex.simple_gen(of, self.config_record, self.w, self.h, frame_dats)
 
     r = decompress_video_data(of.getvalue(), "matroska", self.w, self.h, pix_fmt)

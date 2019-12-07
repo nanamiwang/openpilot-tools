@@ -117,8 +117,8 @@ def boardd_mock_loop():
   can_init()
   handle.controlWrite(0x40, 0xdc, SAFETY_ALLOUTPUT, 0, b'')
 
-  logcan = messaging.sub_sock(service_list['can'].port)
-  sendcan = messaging.pub_sock(service_list['sendcan'].port)
+  logcan = messaging.sub_sock('can')
+  sendcan = messaging.pub_sock('sendcan')
 
   while 1:
     tsc = messaging.drain_sock(logcan, wait_for_one=True)
@@ -159,7 +159,7 @@ def boardd_loop(rate=200):
   health_sock = messaging.pub_sock(service_list['health'].port)
 
   # *** subscribes to can send
-  sendcan = messaging.sub_sock(service_list['sendcan'].port)
+  sendcan = messaging.sub_sock('sendcan')
 
   while 1:
     # health packet @ 1hz
