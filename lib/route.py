@@ -25,12 +25,12 @@ class Route(object):
   def log_paths(self):
     max_seg_number = self._segments[-1].canonical_name.segment_num
     log_path_by_seg_num = {s.canonical_name.segment_num: s.log_path for s in self._segments}
-    return [log_path_by_seg_num.get(i, None) for i in xrange(max_seg_number+1)]
+    return [log_path_by_seg_num.get(i, None) for i in range(max_seg_number+1)]
 
   def camera_paths(self):
     max_seg_number = self._segments[-1].canonical_name.segment_num
     camera_path_by_seg_num = {s.canonical_name.segment_num: s.camera_path for s in self._segments}
-    return [camera_path_by_seg_num.get(i, None) for i in xrange(max_seg_number+1)]
+    return [camera_path_by_seg_num.get(i, None) for i in range(max_seg_number+1)]
 
   def _get_segments(self, data_dir):
     if not data_dir:

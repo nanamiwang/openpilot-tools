@@ -29,7 +29,7 @@ from common.transformations.camera import eon_intrinsics, FULL_FRAME_SIZE
 from common.transformations.model import MODEL_CX, MODEL_CY, MODEL_INPUT_SIZE
 from selfdrive.config import UIParams as UP
 from selfdrive.controls.lib.vehicle_model import VehicleModel
-from selfdrive.controls.lib.latcontrol_helpers import compute_path_pinv, model_polyfit
+from selfdrive.controls.lib.lane_planner import compute_path_pinv, model_polyfit
 from selfdrive.config import RADAR_TO_CENTER
 from tools.lib.lazy_property import lazy_property
 from tools.replay.lib.ui_helpers import to_lid_pt, draw_path, draw_steer_path, draw_mpc, \
@@ -178,7 +178,7 @@ def maybe_update_radar_points(lt, lid_overlay):
     ar_pts = {}
     for track in lt.liveTracks:
       ar_pts[track.trackId] = [track.dRel, track.yRel, track.vRel, track.aRel, track.oncoming, track.stationary]
-  for ids, pt in ar_pts.viewitems():
+  for ids, pt in ar_pts.items():
     px, py = to_lid_pt(pt[0], pt[1])
     if px != -1:
       if pt[-1]:
@@ -329,7 +329,7 @@ def main(argv):
       route.camera_paths(), None, _frame_id_lookup, readahead=True)
 
     # TODO: Detect car from replay and use that to select carparams
-    CP = ToyotaInterface.get_params("TOYOTA PRIUS 2017", {})
+    CP = ToyotaInterface.get_params("TOYOTA PRIUS 2017")
     VM = VehicleModel(CP)
 
     CalP = np.asarray(
@@ -479,7 +479,6 @@ def main(argv):
       elif typ == 'controlsState':
         v_ego = smsg.controlsState.vEgo
         angle_steers = smsg.controlsState.angleSteers
-        model_bias = smsg.controlsState.angleModelBias
         curvature = smsg.controlsState.curvature
         v_pid = smsg.controlsState.vPid
         enabled = smsg.controlsState.enabled
@@ -653,7 +652,7 @@ def main(argv):
               pt = calibration.car_project_to_screen(np.asarray([x, y, 0, 1]))
               text_line = draw_transparent_text(info_font, "{}m".format(x), YELLOW)
               screen.blit(text_line, (pt[0] + 10, pt[1] + 10))
-              pygame.draw.circle(screen, YELLOW, map(int, map(round, (pt[0], pt[1]))), 2)
+              pygame.draw.circle(screen, YELLOW, list(map(int, map(round, (pt[0], pt[1])))), 2)
               if prev_pt:
                 pygame.draw.line(screen, YELLOW, pt, prev_pt, 1)
               prev_pt = pt
@@ -666,7 +665,7 @@ def main(argv):
               if z != 0:
                 text_line = draw_transparent_text(info_font, "{}m".format(z), YELLOW)
                 screen.blit(text_line, (pt[0] + 10, pt[1]))
-                pygame.draw.circle(screen, YELLOW, map(int, map(round, (pt[0], pt[1]))), 2)
+                pygame.draw.circle(screen, YELLOW, list(map(int, map(round, (pt[0], pt[1])))), 2)
               if prev_pt:
                 pygame.draw.line(screen, YELLOW, pt, prev_pt, 1)
               prev_pt = pt
@@ -722,11 +721,6 @@ def main(argv):
           text_line = draw_transparent_text(info_font, "Lead2 dist: {}, y: {}".format(int(d_rel2), int(y_rel2)), YELLOW)
           screen.blit(text_line, (write_x, write_y))
           write_y += 30
-
-        # angle offset
-        model_bias_line = info_font.render("MODEL BIAS: " + str(round(model_bias, 2)) + " deg", True, YELLOW)
-        screen.blit(model_bias_line, (write_x, write_y))
-        write_y += 30
 
         angle_offset_line = draw_transparent_text(info_font, "STEER OFFSET: " + str(round(angle_offset, 2)) + " deg", YELLOW)
         screen.blit(angle_offset_line, (write_x, write_y))

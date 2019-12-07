@@ -7,10 +7,16 @@ import tempfile
 import threading
 import xml.etree.ElementTree as ET
 import numpy as np
-import queue as queue
+import sys
 import subprocess32 as subprocess
-import _pickle as pickle
-import six
+if sys.version_info >= (3,0):
+  import queue
+  import pickle
+  from io import BytesIO as StringIO
+else:
+  import Queue as queue
+  import cPickle as pickle
+  from cStringIO import StringIO
 from aenum import Enum
 from lru import LRU
 from functools import wraps
@@ -252,7 +258,7 @@ def pstream_predecompress(fns, probe, indexes, global_prefix, cache_prefix, mult
   try:
     for fn, out_fn, out_exist, index in zip(fns, out_fns, out_exists, indexes):
       if out_exist:
-        for fi in xrange(index.shape[0]-1):
+        for fi in range(index.shape[0]-1):
           read_frame()
         continue
 
@@ -273,7 +279,7 @@ def pstream_predecompress(fns, probe, indexes, global_prefix, cache_prefix, mult
            out_tmp.name],
           stdin=subprocess.PIPE, stderr=open("/dev/null", "wb"))
         try:
-          for fi in xrange(index.shape[0]-1):
+          for fi in range(index.shape[0]-1):
             frame = read_frame()
             compress_proc.stdin.write(frame)
           compress_proc.stdin.close()
@@ -360,7 +366,7 @@ def index_pstream(fns, typ, cache_prefix=None):
   #  to the start of the following segment)
   prefix_data = ["" for _ in fns]
   prefix_index = [[] for _ in fns]
-  for i in xrange(len(fns)-1):
+  for i in range(len(fns)-1):
     if indexes[i+1][0, 0] == H264_SLICE_I and indexes[i+1][0, 1] <= 1:
       # next file happens to start with a i-frame, dont need use this file's end
       continue
@@ -682,7 +688,7 @@ def read_fcamera_stream(frames,
 
       total_frames_in += count
 
-      for _ in xrange(count):
+      for _ in range(count):
         yield cookie, read_func(proc.stdout, out_size, cookie)
         total_frames_out += 1
   finally:
@@ -798,9 +804,9 @@ def vidindex_mp4(fn):
       last_chunk = len(chunk_offsets)-1
     else:
       last_chunk = sample_chunk_table[i+1][0]-1
-    for k in xrange(first_chunk, last_chunk+1):
+    for k in range(first_chunk, last_chunk+1):
       sample_offset = chunk_offsets[k]
-      for _ in xrange(samples_per_chunk):
+      for _ in range(samples_per_chunk):
         sample_offsets[sample_i] = sample_offset
         sample_offset += sample_sizes[sample_i]
         sample_i += 1
@@ -814,7 +820,7 @@ def vidindex_mp4(fn):
   sample_pts_offset = [0 for _ in sample_sizes]
   sample_i = 0
   for dt, count in pts_offset_table:
-    for _ in xrange(count):
+    for _ in range(count):
       sample_pts_offset[sample_i] = dt
       sample_i += 1
 
@@ -826,7 +832,7 @@ def vidindex_mp4(fn):
   cur_ts = 0
   sample_i = 0
   for dt, count in sample_time_table:
-    for _ in xrange(count):
+    for _ in range(count):
       sample_time[sample_i] = (cur_ts + sample_pts_offset[sample_i]) * 1000 / time_scale
 
       cur_ts += dt
@@ -936,7 +942,7 @@ class RawFrameReader(BaseFrameReader):
       raise ValueError("Unsupported pixel format %r" % pix_fmt)
 
     app = []
-    for i in xrange(num, num+count):
+    for i in range(num, num+count):
       dat = self.rawfile.read(i)
       rgb_dat = self.load_and_debayer(dat)
       if pix_fmt == "rgb24":
@@ -1090,12 +1096,12 @@ class MKVFrameReader(BaseFrameReader):
 
     frame_dats = []
     with FileReader(self.fn) as f:
-      for i in xrange(num, num+count):
+      for i in range(num, num+count):
         pos, length, _ = self.index[i]
         f.seek(pos)
         frame_dats.append(f.read(length))
 
-    of = six.StringIO()
+    of = StringIO()
     mkvindex.simple_gen(of, self.config_record, self.w, self.h, frame_dats)
 
     r = decompress_video_data(of.getvalue(), "matroska", self.w, self.h, pix_fmt)
@@ -1163,10 +1169,10 @@ class GOPFrameReader(BaseFrameReader):
       num, pix_fmt = self.readahead_last
 
       if self.readbehind:
-        for k in xrange(num-1, max(0, num-self.readahead_len), -1):
+        for k in range(num-1, max(0, num-self.readahead_len), -1):
           self._get_one(k, pix_fmt)
       else:
-        for k in xrange(num, min(self.frame_count, num+self.readahead_len)):
+        for k in range(num, min(self.frame_count, num+self.readahead_len)):
           self._get_one(k, pix_fmt)
 
   def _get_one(self, num, pix_fmt):
@@ -1186,7 +1192,7 @@ class GOPFrameReader(BaseFrameReader):
       ret = ret[skip_frames:]
       assert ret.shape[0] == num_frames
 
-      for i in xrange(ret.shape[0]):
+      for i in range(ret.shape[0]):
         self.frame_cache[(frame_b+i, pix_fmt)] = ret[i]
 
       return self.frame_cache[(num, pix_fmt)]
@@ -1200,7 +1206,7 @@ class GOPFrameReader(BaseFrameReader):
     if pix_fmt not in ("yuv420p", "rgb24", "yuv444p"):
       raise ValueError("Unsupported pixel format %r" % pix_fmt)
 
-    ret = [self._get_one(num + i, pix_fmt) for i in xrange(count)]
+    ret = [self._get_one(num + i, pix_fmt) for i in range(count)]
 
     if self.readahead:
       self.readahead_last = (num+count, pix_fmt)
@@ -1409,7 +1415,7 @@ def FrameIterator(fn, pix_fmt, **kwargs):
   if isinstance(fr, GOPReader):
     for v in GOPFrameIterator(fr, pix_fmt, kwargs.get("multithreaded", True)): yield v
   else:
-    for i in xrange(fr.frame_count):
+    for i in range(fr.frame_count):
       yield fr.get(i, pix_fmt=pix_fmt)[0]
 
 
